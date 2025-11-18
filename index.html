@@ -1,0 +1,154 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FoodFlow - Sistema de Receitas Culinárias</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="foodflow">
+  <header class="header">
+    <div class="container">
+      <div class="header-content">
+        <a class="logo" href="index.html"><i class="fa-solid fa-utensils"></i><span>FoodFlow</span></a>
+        <nav>
+          <ul class="nav-menu">
+            <li><a class="nav-link active" href="#">Receitas</a></li>
+            <li><a class="nav-link" href="#" id="open-new-recipe">Cadastrar Receita</a></li>
+          </ul>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-content container">
+      <h1>Descubra, cozinhe e compartilhe</h1>
+      <div class="hero-actions">
+        <select id="categoria-filter" class="select">
+          <option value="">Todas as categorias</option>
+          <option value="sobremesa">Sobremesa</option>
+          <option value="prato-principal">Prato Principal</option>
+          <option value="entrada">Entrada</option>
+          <option value="bebida">Bebida</option>
+          <option value="lanche">Lanche</option>
+        </select>
+        <input id="busca-input" class="input" type="text" placeholder="Buscar por título">
+        <button id="buscar-btn" class="btn btn-primary"><i class="fa-solid fa-magnifying-glass"></i> Buscar</button>
+      </div>
+    </div>
+  </section>
+
+  <main class="container">
+    <div id="receitas-grid" class="grid"></div>
+    <div id="empty-state" class="empty hidden">
+      <i class="fa-solid fa-bowl-food"></i>
+      <h3>Nenhuma receita encontrada</h3>
+      <p>Experimente outra categoria ou cadastre uma nova receita</p>
+    </div>
+  </main>
+
+  <div class="modal-overlay hidden" id="recipe-modal">
+    <div class="modal">
+      <button class="modal-close" id="close-recipe-modal" aria-label="Fechar" title="Fechar"><i class="fa-solid fa-xmark"></i></button>
+      <div class="recipe-cover" id="recipe-cover"></div>
+      <div class="modal-content">
+        <h2 id="recipe-title"></h2>
+        <div class="recipe-meta">
+          <span id="recipe-category"></span>
+          <span id="recipe-author"></span>
+        </div>
+        <div class="recipe-section">
+          <h3>Ingredientes</h3>
+          <pre id="recipe-ingredients"></pre>
+        </div>
+        <div class="recipe-section">
+          <h3>Modo de preparo</h3>
+          <pre id="recipe-method"></pre>
+        </div>
+        <div class="comments">
+          <h3>Comentários</h3>
+          <div id="comments-list" class="comments-list"></div>
+          <form id="comment-form" class="comment-form">
+            <input type="text" id="comment-user" class="input" placeholder="Seu nome" required>
+            <textarea id="comment-text" class="textarea" placeholder="Escreva um comentário" required></textarea>
+            <button class="btn btn-secondary" type="submit"><i class="fa-solid fa-comment"></i> Enviar comentário</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="new-recipe-modal">
+    <div class="modal">
+      <button class="modal-close" id="close-new-recipe"><i class="fa-solid fa-xmark"></i></button>
+      <div class="modal-content">
+        <h2>Cadastrar Receita</h2>
+        <form id="new-recipe-form" class="form">
+          <input type="text" id="titulo" class="input" placeholder="Título" required>
+          <select id="categoria" class="select" required>
+            <option value="">Selecione a categoria</option>
+            <option value="sobremesa">Sobremesa</option>
+            <option value="prato-principal">Prato Principal</option>
+            <option value="entrada">Entrada</option>
+            <option value="bebida">Bebida</option>
+            <option value="lanche">Lanche</option>
+          </select>
+          <input type="text" id="autor" class="input" placeholder="Autor" required>
+          <input type="file" id="imagem" class="input" accept="image/*">
+          <textarea id="ingredientes" class="textarea" placeholder="Ingredientes (um por linha)" required></textarea>
+          <textarea id="modo_preparo" class="textarea" placeholder="Modo de preparo" required></textarea>
+          <button class="btn btn-primary" type="submit"><i class="fa-solid fa-plus"></i> Salvar Receita</button>
+        </form>
+      </div>
+  </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="login-modal">
+    <div class="modal">
+      <button class="modal-close" id="close-login"><i class="fa-solid fa-xmark"></i></button>
+      <div class="modal-content">
+        <h2>Entrar</h2>
+        <form id="login-form" class="form auth-form">
+          <input type="email" id="login-email" class="input" placeholder="E-mail" required>
+          <input type="password" id="login-password" class="input" placeholder="Senha" required>
+          <div id="login-msg" class="alert hidden"></div>
+          <button class="btn btn-primary" type="submit"><i class="fa-solid fa-right-to-bracket"></i> Entrar</button>
+          <button class="btn btn-secondary" type="button" id="open-signup"><i class="fa-solid fa-user-plus"></i> Criar conta</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="signup-modal">
+    <div class="modal">
+      <button class="modal-close" id="close-signup"><i class="fa-solid fa-xmark"></i></button>
+      <div class="modal-content">
+        <h2>Criar conta</h2>
+        <form id="signup-form" class="form auth-form">
+          <input type="text" id="signup-name" class="input" placeholder="Nome">
+          <input type="email" id="signup-email" class="input" placeholder="E-mail" required>
+          <input type="password" id="signup-password" class="input" placeholder="Senha" required>
+          <div id="signup-msg" class="alert hidden"></div>
+          <button class="btn btn-primary" type="submit"><i class="fa-solid fa-user-plus"></i> Criar conta</button>
+          <button class="btn btn-secondary" type="button" id="open-login"><i class="fa-solid fa-right-to-bracket"></i> Já tenho conta</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container footer-content">
+      <p>&copy; 2025 FoodFlow</p>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="foodflow.js"></script>
+</body>
+</html>
