@@ -37,7 +37,7 @@ async function fetchReceitas() {
 
 async function fetchComentarios(idReceita) {
   try {
-    const { data, error } = await db.from('comentarios').select('*').eq('id_receita', idReceita).order('criado_em', { ascending: false });
+    const { data, error } = await db.from('comentarios').select('*').eq('receita_id', idReceita).order('criado_em', { ascending: false });
     if (error) throw error;
     return data;
   } catch (err) {
@@ -246,3 +246,4 @@ async function boot() {
 }
 
 document.addEventListener('DOMContentLoaded', boot);
+
