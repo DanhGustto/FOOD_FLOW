@@ -1,184 +1,131 @@
-import { createClient } from '@supabase/supabase-js';
+const config = {
+  url: 'https://yckkxwbgeppeccdkzjdz.supabase.co',
+  key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlja2t4d2JnZXBwZWNjZGt6amR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NzE1MDIsImV4cCI6MjA3OTA0NzUwMn0.3NAzr8mdGyuJnKadwBjHYjP16T_wrkIPZdIYpU4v2fI',
+  bucket: 'receitas'
+};
 
-// Config Supabase
-const SUPABASE_URL = 'https://yckkxwbgeppeccdkzjdz.supabase.co';
-const SUPABASE_ANON_KEY = 'SUA_CHAVE_AQUI'; // ← substitua pela sua chave anon
-const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const STORAGE_BUCKET = 'receitas';
+const sb = window.supabase.createClient(config.url, config.key);
 
-const state = { receitas: [], filtroCategoria: '', busca: '', receitaAtual: null };
+const defaults = [
+  { id: '1', titulo: 'Bolo de Cenoura', autor: 'Ana', categoria: 'sobremesa', ingredientes: 'Cenoura\nFarinha\nAçúcar\nOvos\nÓleo', modo_preparo: 'Misture tudo e asse 40min a 180ºC', imagem: 'img/boloCenoura.jpg', criado_em: new Date().toISOString() },
+  { id: '2', titulo: 'Lasanha Bolonhesa', autor: 'Carlos', categoria: 'prato-principal', ingredientes: 'Massa\nMolho\nCarne Moída\nQueijo', modo_preparo: 'Forno 30min', imagem: 'img/lasanha.jpg', criado_em: new Date().toISOString() },
+  { id: '3', titulo: 'Bruschetta', autor: 'Julia', categoria: 'entrada', ingredientes: 'Pão\nTomate\nManjericão\nAzeite', modo_preparo: 'Toste e cubra', imagem: 'img/bruschetta.jpg', criado_em: new Date().toISOString() }
+];
 
-// Imagens fallback (caso a receita não tenha imagem salva)
-function imgFor(title, category) {
-  const q = encodeURIComponent(`${category || 'food'} ${title || ''}`);
-  return `https://source.unsplash.com/featured/800x600?${q}`;
-}
+const state = {
+  receitas: [],
+  filtro: '',
+  busca: '',
+  atual: null
+};
 
-// Define imagem do card/modal
-function coverFor(recipe) {
-  return recipe && recipe.imagem ? recipe.imagem : imgFor(recipe.titulo, recipe.categoria);
-}
-
-// Busca receitas do banco ou carrega defaults se falhar
-async function fetchReceitas() {
-  const defaults = [
-    { id: '1', titulo: 'Bolo de Cenoura', categoria: 'sobremesa', ingredientes: 'Cenoura\nFarinha\nAçúcar\nOvos\nÓleo', modo_preparo: 'Asse 40min a 180ºC', autor: 'Ana', imagem: null },
-    { id: '2', titulo: 'Lasanha Bolonhesa', categoria: 'prato-principal', ingredientes: 'Massa\nCarne\nQueijo', modo_preparo: 'Forno 30min', autor: 'Carlos', imagem: null }
-  ];
-
-  try {
-    const { data, error } = await db
-      .from('receitas')
-      .select('*')
-      .order('criado_em', { ascending: false });
-
-    if (error) {
-      console.error("Erro ao buscar receitas:", error);
-      return defaults;
-    }
-    return [...defaults, ...(data || [])];
-  } catch (err) {
-    console.error("Exceção ao buscar receitas:", err);
-    return defaults;
-  }
-}
-
-// Busca comentários da receita
-async function fetchComentarios(idReceita) {
-  try {
-    const { data, error } = await db
-      .from('comentarios')
-      .select('*')
-      .eq('id_receita', idReceita)
-      .order('criado_em', { ascending: false });
-
-    if (error) {
-      console.error("Erro ao buscar comentários:", error);
-      return [];
-    }
-    return data || [];
-  } catch (err) {
-    console.error("Exceção ao buscar comentários:", err);
-    return [];
-  }
-}
-
-// Salva nova receita no banco
-async function insertReceita(rec) {
-  try {
-    const { data, error } = await db
-      .from('receitas')
-      .insert(rec)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Erro ao inserir receita:", error);
-      return null;
-    }
-    return data;
-  } catch (err) {
-    console.error("Exceção ao inserir receita:", err);
-    return null;
-  }
-}
-
-// Salva novo comentário
-async function insertComentario(com) {
-  try {
-    const { data, error } = await db
-      .from('comentarios')
-      .insert(com)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Erro ao inserir comentário:", error);
-      return null;
-    }
-    return data;
-  } catch (err) {
-    console.error("Exceção ao inserir comentário:", err);
-    return null;
-  }
-}
-
-// Upload da imagem no storage
+// UPLOAD imagem para Storage
 async function uploadImagem(file, title) {
   if (!file) return null;
+  if (!sb) return URL.createObjectURL(file);
 
-  const slug = (title || 'imagem')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-
-  const ext = file.name.includes('.') ? file.name.slice(file.name.lastIndexOf('.')) : '';
+  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const ext = file.name.slice(file.name.lastIndexOf('.'));
   const path = `uploads/${Date.now()}-${slug}${ext}`;
 
-  try {
-    const { error } = await db.storage.from(STORAGE_BUCKET).upload(path, file, {
-      upsert: true,
-      contentType: file.type
-    });
+  const { error } = await sb.storage.from(config.bucket).upload(path, file, {
+    upsert: true,
+    contentType: file.type
+  });
 
-    if (error) {
-      console.error("Erro no upload da imagem:", error);
-      return null;
-    }
-
-    const { data } = db.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-    return data.publicUrl;
-  } catch (err) {
-    console.error("Exceção no upload da imagem:", err);
+  if (error) {
+    console.error("Storage upload error:", error);
     return null;
   }
+
+  const { data } = sb.storage.from(config.bucket).getPublicUrl(path);
+  return data.publicUrl;
 }
 
-// Renderiza receitas na página
+// INSERT receita no banco
+async function saveReceita(rec) {
+  if (!sb) return { ...rec, id: Date.now().toString(), criado_em: new Date().toISOString() };
+  const { data, error } = await sb.from('receitas').insert(rec).select().single();
+  if (error) {
+    console.error("Insert receita error:", error);
+    return null;
+  }
+  return data;
+}
+
+// SELECT receitas
+async function loadReceitas() {
+  if (!sb) return defaults;
+  const { data, error } = await sb.from('receitas').select('*').order('criado_em', { ascending: false });
+  if (error) {
+    console.error("Select receitas error:", error);
+    return defaults;
+  }
+  return [...defaults, ...data];
+}
+
+// SELECT comentários
+async function loadComentarios(id) {
+  if (!sb) return [];
+  const { data, error } = await sb.from('comentarios').select('*').eq('id_receita', id).order('criado_em', { ascending: false });
+  if (error) {
+    console.error("Select comentarios error:", error);
+    return [];
+  }
+  return data;
+}
+
+// INSERT comentário
+async function saveComentario(com) {
+  if (!sb) return com;
+  const { data, error } = await sb.from('comentarios').insert(com).select().single();
+  if (error) {
+    console.error("Insert comentario error:", error);
+    return null;
+  }
+  return data;
+}
+
 function renderReceitas() {
   const grid = document.getElementById('receitas-grid');
   const empty = document.getElementById('empty-state');
   let items = state.receitas;
 
-  if (state.filtroCategoria) {
-    items = items.filter(r => r.categoria === state.filtroCategoria);
-  }
-  if (state.busca) {
-    items = items.filter(r => r.titulo.toLowerCase().includes(state.busca.toLowerCase()));
-  }
+  if (state.filtro) items = items.filter(r => r.categoria === state.filtro);
+  if (state.busca) items = items.filter(r => r.titulo.toLowerCase().includes(state.busca.toLowerCase()));
 
   if (!items.length) {
-    empty?.classList.remove('hidden');
-    if (grid) grid.innerHTML = '';
+    empty.classList.remove('hidden');
+    grid.innerHTML = '';
     return;
   }
 
-  empty?.classList.add('hidden');
-  if (!grid) return;
-
+  empty.classList.add('hidden');
   grid.innerHTML = items.map(r => `
-    <article class="card" data-id="${r.id}">
-      <div class="card-cover" style="background-image:url('${coverFor(r)}')"></div>
+    <article class="card">
+      <div class="card-cover" style="background-image:url('${r.imagem || ''}')"></div>
       <div class="card-body">
         <div class="card-title">${r.titulo}</div>
-        <div class="card-meta"><span>${r.categoria}</span><span>•</span><span>${r.autor}</span></div>
+        <div class="card-meta"><span>${r.categoria}</span> • <span>${r.autor}</span></div>
         <div class="card-actions">
-          <button class="btn btn-secondary open-recipe" data-id="${r.id}">Ver</button>
-          <button class="btn btn-primary add-comment" data-id="${r.id}">Comentar</button>
+          <button class="open-recipe" data-id="${r.id}">👁 Ver</button>
+          <button class="add-comment" data-id="${r.id}">💬 Comentar</button>
         </div>
       </div>
     </article>
   `).join('');
 
-  grid.querySelectorAll('.open-recipe').forEach(b =>
-    b.addEventListener('click', () => openRecipe(b.dataset.id))
+  document.querySelectorAll('.open-recipe').forEach(btn => 
+    btn.addEventListener('click', () => openRecipe(btn.dataset.id))
+  );
+
+  document.querySelectorAll('.add-comment').forEach(btn => 
+    btn.addEventListener('click', () => openComment(btn.dataset.id))
   );
 }
 
-// Renderiza comentários
 function renderComentarios(comments) {
   const list = document.getElementById('comments-list');
-  if (!list) return;
   list.innerHTML = comments.map(c => `
     <div class="comment">
       <div class="comment-user">${c.usuario}</div>
@@ -187,44 +134,51 @@ function renderComentarios(comments) {
   `).join('');
 }
 
-// Abre modal da receita
+function closeRecipe() {
+  document.getElementById('recipe-modal').classList.add('hidden');
+  state.atual = null;
+}
+
+function openComment(id) {
+  state.idComentar = id;
+  document.getElementById('comment-modal')?.classList.remove('hidden');
+}
+
 async function openRecipe(id) {
   const r = state.receitas.find(x => x.id == id);
   if (!r) return;
-  state.receitaAtual = r;
-
-  document.getElementById('recipe-cover').style.backgroundImage = `url('${coverFor(r)}')`;
+  state.atual = r;
+  document.getElementById('recipe-cover').style.backgroundImage = `url('${r.imagem || ''}')`;
   document.getElementById('recipe-title').textContent = r.titulo;
   document.getElementById('recipe-category').textContent = r.categoria;
   document.getElementById('recipe-author').textContent = r.autor;
   document.getElementById('recipe-ingredients').textContent = r.ingredientes;
   document.getElementById('recipe-method').textContent = r.modo_preparo;
-  document.getElementById('recipe-modal')?.classList.remove('hidden');
+  document.getElementById('recipe-modal').classList.remove('hidden');
 
-  const comments = await fetchComentarios(r.id);
-  renderComentarios(comments);
+  const coms = await loadComentarios(r.id);
+  renderComentarios(coms);
 }
 
-// Fecha modal
-function closeRecipe() {
-  document.getElementById('recipe-modal')?.classList.add('hidden');
-  state.receitaAtual = null;
-}
+document.getElementById('close-recipe-modal')?.addEventListener('click', closeRecipe);
 
-// Abre modal de nova receita
-function openNewRecipe() {
-  document.getElementById('new-recipe-modal')?.classList.remove('hidden');
-}
+document.getElementById('send-comment')?.addEventListener('click', async () => {
+  const u = document.getElementById('comment-user').value.trim();
+  const t = document.getElementById('comment-text').value.trim();
+  if (!u || !t || !state.idComentar) return;
 
-// Fecha modal de nova receita
-function closeNewRecipe() {
-  document.getElementById('new-recipe-modal')?.classList.add('hidden');
-}
+  const saved = await saveComentario({ id_receita: state.idComentar, usuario: u, texto: t });
+  if (saved && state.atual) {
+    const coms = await loadComentarios(state.atual.id);
+    renderComentarios(coms);
+  }
+  document.getElementById('comment-modal')?.classList.add('hidden');
+  document.getElementById('comment-form').reset();
+});
 
-// Submit do form de nova receita
+// SUBMIT nova receita
 async function submitNewRecipe(e) {
   e.preventDefault();
-
   const rec = {
     titulo: document.getElementById('titulo').value.trim(),
     categoria: document.getElementById('categoria').value,
@@ -238,38 +192,19 @@ async function submitNewRecipe(e) {
   const file = document.getElementById('imagem')?.files?.[0];
   rec.imagem = await uploadImagem(file, rec.titulo);
 
-  const saved = await insertReceita(rec);
-
-  if (saved) {
-    state.receitas.unshift(saved);
-  } else {
-    state.receitas.unshift({ ...rec, id: Date.now().toString(), imagem: rec.imagem });
-  }
+  const saved = await saveReceita(rec);
+  if (saved) state.receitas.unshift(saved); else state.receitas.unshift({ ...rec, id: Date.now().toString(), criado_em:new Date().toISOString() });
 
   renderReceitas();
-  closeNewRecipe();
+  document.getElementById('new-recipe-modal').classList.add('hidden');
   e.target.reset();
 }
 
-// Boot da aplicação
-async function boot() {
-  document.getElementById('buscar-btn')?.addEventListener('click', () => {
-    state.busca = document.getElementById('busca-input').value;
-    renderReceitas();
-  });
+document.getElementById('new-recipe-form')?.addEventListener('submit', submitNewRecipe);
 
-  document.getElementById('categoria-filter')?.addEventListener('change', e => {
-    state.filtroCategoria = e.target.value;
-    renderReceitas();
-  });
-
-  document.getElementById('open-new-recipe')?.addEventListener('click', openNewRecipe);
-  document.getElementById('new-recipe-form')?.addEventListener('submit', submitNewRecipe);
-  document.getElementById('close-recipe-modal')?.addEventListener('click', closeRecipe);
-  document.getElementById('close-new-recipe')?.addEventListener('click', closeNewRecipe);
-
-  state.receitas = await fetchReceitas();
+// BOOT do site
+document.addEventListener('DOMContentLoaded', async () => {
+  state.receitas = await loadReceitas();
   renderReceitas();
-}
+});
 
-document.addEventListener('DOMContentLoaded', boot);
